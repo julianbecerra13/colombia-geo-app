@@ -1,0 +1,36 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Usuario {
+  id        Int      @id @default(autoincrement())
+  nombre    String
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+
+  @@map("usuarios")
+}
+
+model Departamento {
+  id       Int      @id @default(autoincrement())
+  nombre   String   @unique
+  ciudades Ciudad[]
+
+  @@map("departamentos")
+}
+
+model Ciudad {
+  id              Int          @id @default(autoincrement())
+  nombre          String
+  departamentoId  Int
+  departamento    Departamento @relation(fields: [departamentoId], references: [id], onDelete: Cascade)
+
+  @@map("ciudades")
+}
