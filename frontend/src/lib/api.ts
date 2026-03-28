@@ -24,8 +24,13 @@ async function fetchApi(endpoint: string, options: RequestInit = {}) {
   }
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || 'Error en la petición');
+    try {
+      const error = await response.json();
+      throw new Error(error.message || `Error ${response.status}`);
+    } catch (e) {
+      if (e instanceof Error && e.message !== `Error ${response.status}`) throw e;
+      throw new Error(`Error del servidor: ${response.status}`);
+    }
   }
 
   return response.json();

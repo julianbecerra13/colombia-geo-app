@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCiudadDto, UpdateCiudadDto } from './dto/ciudad.dto';
 
@@ -9,6 +9,7 @@ export class CiudadesService {
   async findAll() {
     return this.prisma.ciudad.findMany({
       include: { departamento: true },
+      orderBy: { nombre: 'asc' },
     });
   }
 
@@ -26,6 +27,14 @@ export class CiudadesService {
   }
 
   async create(dto: CreateCiudadDto) {
+    const departamento = await this.prisma.departamento.findUnique({
+      where: { id: dto.departamentoId },
+    });
+
+    if (!departamento) {
+      throw new BadRequestException('El departamento seleccionado no existe');
+    }
+
     return this.prisma.ciudad.create({
       data: dto,
       include: { departamento: true },
@@ -34,6 +43,14 @@ export class CiudadesService {
 
   async update(id: number, dto: UpdateCiudadDto) {
     await this.findOne(id);
+
+    const departamento = await this.prisma.departamento.findUnique({
+      where: { id: dto.departamentoId },
+    });
+
+    if (!departamento) {
+      throw new BadRequestException('El departamento seleccionado no existe');
+    }
 
     return this.prisma.ciudad.update({
       where: { id },

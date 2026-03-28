@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateDepartamentoDto, UpdateDepartamentoDto } from './dto/departamento.dto';
 
@@ -9,6 +9,7 @@ export class DepartamentosService {
   async findAll() {
     return this.prisma.departamento.findMany({
       include: { ciudades: true },
+      orderBy: { nombre: 'asc' },
     });
   }
 
@@ -26,17 +27,35 @@ export class DepartamentosService {
   }
 
   async create(dto: CreateDepartamentoDto) {
+    const existe = await this.prisma.departamento.findUnique({
+      where: { nombre: dto.nombre },
+    });
+
+    if (existe) {
+      throw new ConflictException('Ya existe un departamento con ese nombre');
+    }
+
     return this.prisma.departamento.create({
       data: dto,
+      include: { ciudades: true },
     });
   }
 
   async update(id: number, dto: UpdateDepartamentoDto) {
     await this.findOne(id);
 
+    const existe = await this.prisma.departamento.findFirst({
+      where: { nombre: dto.nombre, NOT: { id } },
+    });
+
+    if (existe) {
+      throw new ConflictException('Ya existe un departamento con ese nombre');
+    }
+
     return this.prisma.departamento.update({
       where: { id },
       data: dto,
+      include: { ciudades: true },
     });
   }
 
