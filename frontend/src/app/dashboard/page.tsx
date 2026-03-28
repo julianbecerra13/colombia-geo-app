@@ -105,8 +105,8 @@ export default function DashboardPage() {
           <h2 className="text-2xl font-semibold">Departamentos</h2>
 
           <Dialog open={openCreate} onOpenChange={setOpenCreate}>
-            <DialogTrigger asChild>
-              <Button>Nuevo departamento</Button>
+            <DialogTrigger render={<Button />}>
+              Nuevo departamento
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>

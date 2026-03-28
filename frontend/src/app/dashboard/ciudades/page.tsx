@@ -123,8 +123,8 @@ export default function CiudadesPage() {
           <h2 className="text-2xl font-semibold">Ciudades</h2>
 
           <Dialog open={openCreate} onOpenChange={setOpenCreate}>
-            <DialogTrigger asChild>
-              <Button>Nueva ciudad</Button>
+            <DialogTrigger render={<Button />}>
+              Nueva ciudad
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
@@ -143,7 +143,7 @@ export default function CiudadesPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>Departamento</Label>
-                  <Select value={departamentoId} onValueChange={setDepartamentoId} required>
+                  <Select value={departamentoId} onValueChange={(v) => setDepartamentoId(v ?? '')} required>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecciona un departamento" />
                     </SelectTrigger>
@@ -217,7 +217,7 @@ export default function CiudadesPage() {
             </div>
             <div className="space-y-2">
               <Label>Departamento</Label>
-              <Select value={editDepartamentoId} onValueChange={setEditDepartamentoId}>
+              <Select value={editDepartamentoId} onValueChange={(v) => setEditDepartamentoId(v ?? '')}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>

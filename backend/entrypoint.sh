@@ -10,4 +10,4 @@ echo "Ejecutando seed..."
 npx prisma db seed
 
 echo "Iniciando servidor..."
-node dist/main
+node dist/src/main
