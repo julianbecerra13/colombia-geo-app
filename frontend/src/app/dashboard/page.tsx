@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -38,6 +38,14 @@ export default function DashboardPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  // Paginación y búsqueda
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const LIMIT = 10;
+
   // Estado para gestionar ciudades de un departamento
   const [selectedDepto, setSelectedDepto] = useState<Departamento | null>(null);
   const [openCiudades, setOpenCiudades] = useState(false);
@@ -49,20 +57,37 @@ export default function DashboardPage() {
   const [deleteNombre, setDeleteNombre] = useState('');
   const [openDelete, setOpenDelete] = useState(false);
 
-  const fetchDepartamentos = async () => {
+  const fetchDepartamentos = useCallback(async (p: number = page, s: string = search) => {
     try {
-      const data = await departamentosApi.getAll();
-      setDepartamentos(data);
+      const res = await departamentosApi.getAll(p, LIMIT, s || undefined);
+      setDepartamentos(res.data);
+      setTotalPages(res.totalPages);
+      setTotal(res.total);
+      setPage(res.page);
     } catch {
       router.push('/login');
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, search, router]);
 
   useEffect(() => {
-    fetchDepartamentos();
+    fetchDepartamentos(1, '');
   }, []);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSearch(searchInput);
+    setPage(1);
+    fetchDepartamentos(1, searchInput);
+  };
+
+  const clearSearch = () => {
+    setSearchInput('');
+    setSearch('');
+    setPage(1);
+    fetchDepartamentos(1, '');
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,7 +98,7 @@ export default function DashboardPage() {
       toast.success('Departamento creado correctamente');
       setNombre('');
       setOpenCreate(false);
-      fetchDepartamentos();
+      fetchDepartamentos(page, search);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al crear');
     } finally {
@@ -90,7 +115,7 @@ export default function DashboardPage() {
         await departamentosApi.update(editId, editNombre);
         toast.success('Departamento actualizado correctamente');
         setOpenEdit(false);
-        fetchDepartamentos();
+        fetchDepartamentos(page, search);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al actualizar');
@@ -112,7 +137,7 @@ export default function DashboardPage() {
       await departamentosApi.delete(deleteId);
       toast.success('Departamento eliminado correctamente');
       setOpenDelete(false);
-      fetchDepartamentos();
+      fetchDepartamentos(page, search);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error al eliminar');
     } finally {
@@ -143,7 +168,7 @@ export default function DashboardPage() {
       setNuevaCiudad('');
       const updated = await departamentosApi.getOne(selectedDepto.id);
       setSelectedDepto(updated);
-      fetchDepartamentos();
+      fetchDepartamentos(page, search);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error al crear ciudad');
     } finally {
@@ -158,7 +183,7 @@ export default function DashboardPage() {
       if (selectedDepto) {
         const updated = await departamentosApi.getOne(selectedDepto.id);
         setSelectedDepto(updated);
-        fetchDepartamentos();
+        fetchDepartamentos(page, search);
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error al eliminar ciudad');
@@ -240,6 +265,22 @@ export default function DashboardPage() {
           </Dialog>
         </div>
 
+        {/* Búsqueda */}
+        <form onSubmit={handleSearch} className="flex gap-2 mb-4">
+          <Input
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Buscar por nombre..."
+            className="max-w-sm"
+          />
+          <Button type="submit" variant="outline">Buscar</Button>
+          {search && (
+            <Button type="button" variant="ghost" onClick={clearSearch}>
+              Limpiar
+            </Button>
+          )}
+        </form>
+
         <div className="bg-white rounded-lg shadow">
           <Table>
             <TableHeader>
@@ -279,16 +320,48 @@ export default function DashboardPage() {
               {departamentos.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center text-gray-500 py-8">
-                    No hay departamentos registrados.{' '}
-                    <button onClick={() => setOpenCreate(true)} className="text-blue-600 hover:underline">
-                      Crear uno
-                    </button>
+                    {search ? 'No se encontraron resultados.' : 'No hay departamentos registrados.'}
+                    {!search && (
+                      <>
+                        {' '}
+                        <button onClick={() => setOpenCreate(true)} className="text-blue-600 hover:underline">
+                          Crear uno
+                        </button>
+                      </>
+                    )}
                   </TableCell>
                 </TableRow>
               )}
             </TableBody>
           </Table>
         </div>
+
+        {/* Paginación */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between mt-4">
+            <p className="text-sm text-gray-600">
+              Mostrando página {page} de {totalPages} ({total} registros)
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page <= 1}
+                onClick={() => { const p = page - 1; setPage(p); fetchDepartamentos(p, search); }}
+              >
+                Anterior
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= totalPages}
+                onClick={() => { const p = page + 1; setPage(p); fetchDepartamentos(p, search); }}
+              >
+                Siguiente
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Modal editar departamento */}

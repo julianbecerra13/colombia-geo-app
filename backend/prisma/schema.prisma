@@ -19,9 +19,10 @@ model Usuario {
 }
 
 model Departamento {
-  id       Int      @id @default(autoincrement())
-  nombre   String   @unique
-  ciudades Ciudad[]
+  id        Int       @id @default(autoincrement())
+  nombre    String    @unique
+  ciudades  Ciudad[]
+  deletedAt DateTime?
 
   @@map("departamentos")
 }
@@ -31,6 +32,7 @@ model Ciudad {
   nombre          String
   departamentoId  Int
   departamento    Departamento @relation(fields: [departamentoId], references: [id], onDelete: Cascade)
+  deletedAt       DateTime?
 
   @@map("ciudades")
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -45,29 +45,59 @@ export default function CiudadesPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  // Paginación y búsqueda
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const LIMIT = 10;
+
   // Estado para confirmar eliminación
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [deleteNombre, setDeleteNombre] = useState('');
   const [openDelete, setOpenDelete] = useState(false);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async (p: number = page, s: string = search) => {
     try {
-      const [ciudadesData, deptosData] = await Promise.all([
-        ciudadesApi.getAll(),
-        departamentosApi.getAll(),
+      const [ciudadesRes, deptosRes] = await Promise.all([
+        ciudadesApi.getAll(p, LIMIT, s || undefined),
+        departamentosApi.getAll(1, 100),
       ]);
-      setCiudades(ciudadesData);
-      setDepartamentos(deptosData);
+      setCiudades(ciudadesRes.data);
+      setTotalPages(ciudadesRes.totalPages);
+      setTotal(ciudadesRes.total);
+      setPage(ciudadesRes.page);
+      setDepartamentos(deptosRes.data);
     } catch {
       router.push('/login');
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, search, router]);
 
   useEffect(() => {
-    fetchData();
+    fetchData(1, '');
   }, []);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSearch(searchInput);
+    setPage(1);
+    fetchData(1, searchInput);
+  };
+
+  const clearSearch = () => {
+    setSearchInput('');
+    setSearch('');
+    setPage(1);
+    fetchData(1, '');
+  };
+
+  const getDepartamentoNombre = (id: string) => {
+    const depto = departamentos.find(d => d.id.toString() === id);
+    return depto?.nombre || '';
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,7 +113,7 @@ export default function CiudadesPage() {
       setNombre('');
       setDepartamentoId('');
       setOpenCreate(false);
-      fetchData();
+      fetchData(page, search);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al crear');
     } finally {
@@ -104,7 +134,7 @@ export default function CiudadesPage() {
         await ciudadesApi.update(editId, editNombre, parseInt(editDepartamentoId));
         toast.success('Ciudad actualizada correctamente');
         setOpenEdit(false);
-        fetchData();
+        fetchData(page, search);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al actualizar');
@@ -126,7 +156,7 @@ export default function CiudadesPage() {
       await ciudadesApi.delete(deleteId);
       toast.success('Ciudad eliminada correctamente');
       setOpenDelete(false);
-      fetchData();
+      fetchData(page, search);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error al eliminar');
     } finally {
@@ -232,6 +262,22 @@ export default function CiudadesPage() {
           </Dialog>
         </div>
 
+        {/* Búsqueda */}
+        <form onSubmit={handleSearch} className="flex gap-2 mb-4">
+          <Input
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Buscar por nombre..."
+            className="max-w-sm"
+          />
+          <Button type="submit" variant="outline">Buscar</Button>
+          {search && (
+            <Button type="button" variant="ghost" onClick={clearSearch}>
+              Limpiar
+            </Button>
+          )}
+        </form>
+
         <div className="bg-white rounded-lg shadow">
           <Table>
             <TableHeader>
@@ -261,16 +307,47 @@ export default function CiudadesPage() {
               {ciudades.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center text-gray-500 py-8">
-                    No hay ciudades registradas.{' '}
-                    <button onClick={() => setOpenCreate(true)} className="text-blue-600 hover:underline">
-                      Crear una
-                    </button>
+                    {search ? 'No se encontraron resultados.' : (
+                      <>
+                        No hay ciudades registradas.{' '}
+                        <button onClick={() => setOpenCreate(true)} className="text-blue-600 hover:underline">
+                          Crear una
+                        </button>
+                      </>
+                    )}
                   </TableCell>
                 </TableRow>
               )}
             </TableBody>
           </Table>
         </div>
+
+        {/* Paginación */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between mt-4">
+            <p className="text-sm text-gray-600">
+              Mostrando página {page} de {totalPages} ({total} registros)
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page <= 1}
+                onClick={() => { const p = page - 1; setPage(p); fetchData(p, search); }}
+              >
+                Anterior
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= totalPages}
+                onClick={() => { const p = page + 1; setPage(p); fetchData(p, search); }}
+              >
+                Siguiente
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Modal editar ciudad */}
@@ -294,18 +371,18 @@ export default function CiudadesPage() {
             </div>
             <div className="space-y-2">
               <Label>Departamento</Label>
-              <Select value={editDepartamentoId} onValueChange={(v) => setEditDepartamentoId(v ?? '')}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {departamentos.map((depto) => (
-                    <SelectItem key={depto.id} value={depto.id.toString()}>
-                      {depto.nombre}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <select
+                value={editDepartamentoId}
+                onChange={(e) => setEditDepartamentoId(e.target.value)}
+                className="flex h-9 w-full rounded-lg border border-input bg-transparent px-3 py-1 text-sm transition-colors focus-visible:outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              >
+                <option value="">Selecciona un departamento</option>
+                {departamentos.map((depto) => (
+                  <option key={depto.id} value={depto.id.toString()}>
+                    {depto.nombre}
+                  </option>
+                ))}
+              </select>
             </div>
             <Button type="submit" className="w-full" disabled={submitting}>
               {submitting ? 'Guardando...' : 'Guardar'}

@@ -6,17 +6,37 @@ import { CreateDepartamentoDto, UpdateDepartamentoDto } from './dto/departamento
 export class DepartamentosService {
   constructor(private prisma: PrismaService) {}
 
-  async findAll() {
-    return this.prisma.departamento.findMany({
-      include: { ciudades: true },
-      orderBy: { nombre: 'asc' },
-    });
+  async findAll(page: number = 1, limit: number = 10, search?: string) {
+    const where: any = { deletedAt: null };
+
+    if (search) {
+      where.nombre = { contains: search, mode: 'insensitive' };
+    }
+
+    const [data, total] = await Promise.all([
+      this.prisma.departamento.findMany({
+        where,
+        include: { ciudades: { where: { deletedAt: null } } },
+        orderBy: { nombre: 'asc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.departamento.count({ where }),
+    ]);
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async findOne(id: number) {
-    const departamento = await this.prisma.departamento.findUnique({
-      where: { id },
-      include: { ciudades: true },
+    const departamento = await this.prisma.departamento.findFirst({
+      where: { id, deletedAt: null },
+      include: { ciudades: { where: { deletedAt: null } } },
     });
 
     if (!departamento) {
@@ -27,8 +47,8 @@ export class DepartamentosService {
   }
 
   async create(dto: CreateDepartamentoDto) {
-    const existe = await this.prisma.departamento.findUnique({
-      where: { nombre: dto.nombre },
+    const existe = await this.prisma.departamento.findFirst({
+      where: { nombre: dto.nombre, deletedAt: null },
     });
 
     if (existe) {
@@ -45,7 +65,7 @@ export class DepartamentosService {
     await this.findOne(id);
 
     const existe = await this.prisma.departamento.findFirst({
-      where: { nombre: dto.nombre, NOT: { id } },
+      where: { nombre: dto.nombre, deletedAt: null, NOT: { id } },
     });
 
     if (existe) {
@@ -55,15 +75,21 @@ export class DepartamentosService {
     return this.prisma.departamento.update({
       where: { id },
       data: dto,
-      include: { ciudades: true },
+      include: { ciudades: { where: { deletedAt: null } } },
     });
   }
 
   async remove(id: number) {
     await this.findOne(id);
 
-    return this.prisma.departamento.delete({
+    await this.prisma.ciudad.updateMany({
+      where: { departamentoId: id, deletedAt: null },
+      data: { deletedAt: new Date() },
+    });
+
+    return this.prisma.departamento.update({
       where: { id },
+      data: { deletedAt: new Date() },
     });
   }
 }

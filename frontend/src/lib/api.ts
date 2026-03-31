@@ -53,7 +53,13 @@ export const authApi = {
 
 // Departamentos
 export const departamentosApi = {
-  getAll: () => fetchApi('departamentos'),
+  getAll: (page?: number, limit?: number, search?: string) => {
+    const params = new URLSearchParams();
+    if (page) params.set('page', page.toString());
+    if (limit) params.set('limit', limit.toString());
+    if (search) params.set('search', search);
+    return fetchApi(`departamentos?${params.toString()}`);
+  },
 
   getOne: (id: number) => fetchApi(`departamentos/${id}`),
 
@@ -77,7 +83,13 @@ export const departamentosApi = {
 
 // Ciudades
 export const ciudadesApi = {
-  getAll: () => fetchApi('ciudades'),
+  getAll: (page?: number, limit?: number, search?: string) => {
+    const params = new URLSearchParams();
+    if (page) params.set('page', page.toString());
+    if (limit) params.set('limit', limit.toString());
+    if (search) params.set('search', search);
+    return fetchApi(`ciudades?${params.toString()}`);
+  },
 
   getOne: (id: number) => fetchApi(`ciudades/${id}`),
 
